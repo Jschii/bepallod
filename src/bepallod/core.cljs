@@ -7,7 +7,7 @@
 
 (def colors ["#ffff00" "#ff00ff" "#00ffff" "#ff7f7f" "#7fff7f" "#7f7fff" "#aaaaaa"])
 
-(defn balls []
+(def balls
   (for [x (range 25 425 50)
         y (range 25 425 50)]
     [x y 25 (rand-nth colors)]))
@@ -27,4 +27,15 @@
   (.stroke context)
   (.restore context))
 
-(doseq [[x y d c] (balls)] (drawBall x y d c))
+(defn is-near? [a b]
+  (< (Math/abs (- a b)) 40))
+
+(.addEventListener canvas "click"
+   (fn [event]
+     (let [x (. event -layerX)
+           y (. event -layerY)
+           fb (filter (fn [[bx by _ _]] (and (is-near? bx x) (is-near? by y))) balls)]
+       (if (= (count fb) 4) (println "Hit!") (println "Miss!")))
+     false))
+
+(doseq [[x y d c] balls] (drawBall x y d c))
