@@ -34,13 +34,50 @@
 (defn is-near? [a b]
   (< (Math/abs (- a b)) 40))
 
+(defn target-x [ball x y]
+  (cond
+    (and (> x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-x) 50)
+    (and (< x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-x) 50)
+    :else (ball :cur-x)))
+
+(defn target-y [ball x y]
+  (cond
+    (and (> x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-y) 50)
+    (and (< x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-y) 50)
+    :else (ball :cur-y)))
+
+(defn update-position [c t]
+  (cond
+    (> c t) (- c 5)
+    (< c t) (+ c 5)
+    :else c))
+
+(defn move-balls [bs click-x click-y]
+  (->> bs
+    (mapv (fn [ball] (update-in ball [:target-x] #(target-x ball click-x click-y))))
+    (mapv (fn [ball] (update-in ball [:target-y] #(target-y ball click-x click-y))))))
+
+(defn update-positions [bs]
+  (->> bs
+    (mapv (fn [ball] (update-in ball [:cur-x] #(update-position (ball :cur-x) (ball :target-x)))))
+    (mapv (fn [ball] (update-in ball [:cur-y] #(update-position (ball :cur-y) (ball :target-y)))))))
+
+
+(defn do-frame []
+  (.requestAnimationFrame js/window do-frame)
+  (swap! ball-state update-positions)
+  (.clearRect context 0 0 (. canvas -width) (. canvas -height))
+  (doseq [b @ball-state] (drawBall b)))
+
+
 (.addEventListener canvas "click"
   (fn [event]
     (let [x (. event -layerX)
           y (. event -layerY)
-          fb (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
-      (when (= (count fb) 4)
-        (println "Hit!")))
+          balls-to-move (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)
+          static-balls (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
+      (when (= (count balls-to-move) 4)
+        (reset! ball-state (concat static-balls (move-balls balls-to-move x y)))))
     false))
 
-(doseq [b @ball-state] (drawBall b))
+(do-frame)
