@@ -21,20 +21,30 @@
         y (range 50 400 50)]
     {:cur-x x :cur-y y :dimension 7 :color "#2a2a2a"}))
 
+(defn gradient-value []
+  (-> (-(. (js/Date.) (getTime)))
+    (mod 4000)
+    (/ 2000)
+    (- 1)
+    (Math/abs)))
+
 (defn drawBall [ball]
-  (.save context)
-  (.translate context (ball :cur-x) (ball :cur-y))
-  (set! (. context -lineWidth) 2)
-  (let [gradient (.createLinearGradient context 0 0 (ball :dimension) (ball :dimension))]
-    (.addColorStop gradient 0 (ball :color))
-    (.addColorStop gradient 1 "#000000")
-    (set! (. context -fillStyle) gradient))
-  (.beginPath context)
-  (.arc context 0 0 (ball :dimension) 0 (* Math/PI 2) true)
-  (.closePath context)
-  (.fill context)
-  (.stroke context)
-  (.restore context))
+  (let [dimension (ball :dimension)]
+    (.save context)
+    (.translate context (ball :cur-x) (ball :cur-y))
+    (set! (. context -lineWidth) 2)
+    (when (= dimension 25)
+      (let [gradient (.createLinearGradient context (- dimension) (- dimension) dimension dimension)]
+        (.addColorStop gradient 0 (ball :color))
+        (.addColorStop gradient (gradient-value) "#d5d5d5")
+        (.addColorStop gradient 1 (ball :color))
+        (set! (. context -fillStyle) gradient)))
+    (.beginPath context)
+    (.arc context 0 0 dimension 0 (* Math/PI 2) true)
+    (.closePath context)
+    (.fill context)
+    (.stroke context)
+    (.restore context)))
 
 (defn is-near? [a b]
   (< (Math/abs (- a b)) 40))
