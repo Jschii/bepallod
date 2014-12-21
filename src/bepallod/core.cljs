@@ -16,6 +16,11 @@
 
 (def ball-state (atom balls))
 
+(def knobs
+  (for [x (range 50 400 50)
+        y (range 50 400 50)]
+    {:cur-x x :cur-y y :dimension 7 :color "#2a2a2a"}))
+
 (defn drawBall [ball]
   (.save context)
   (.translate context (ball :cur-x) (ball :cur-y))
@@ -67,7 +72,8 @@
   (.requestAnimationFrame js/window do-frame)
   (swap! ball-state update-positions)
   (.clearRect context 0 0 (. canvas -width) (. canvas -height))
-  (doseq [b @ball-state] (drawBall b)))
+  (doseq [b @ball-state] (drawBall b))
+  (doseq [k knobs] (drawBall k)))
 
 
 (.addEventListener canvas "click"
