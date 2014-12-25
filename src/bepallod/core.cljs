@@ -85,15 +85,15 @@
   (doseq [b @ball-state] (drawBall b))
   (doseq [k knobs] (drawBall k)))
 
+(defn ^:export main []
+  (.addEventListener canvas "click"
+    (fn [event]
+      (let [x (. event -layerX)
+            y (. event -layerY)
+            balls-to-move (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)
+            static-balls (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
+        (when (= (count balls-to-move) 4)
+          (reset! ball-state (concat static-balls (move-balls balls-to-move x y)))))
+      false))
 
-(.addEventListener canvas "click"
-  (fn [event]
-    (let [x (. event -layerX)
-          y (. event -layerY)
-          balls-to-move (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)
-          static-balls (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
-      (when (= (count balls-to-move) 4)
-        (reset! ball-state (concat static-balls (move-balls balls-to-move x y)))))
-    false))
-
-(do-frame)
+  (do-frame))
