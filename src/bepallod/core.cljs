@@ -12,7 +12,8 @@
     (for [x (range 25 425 50)
           y (range 25 425 50)]
       [x y x y 25 (rand-nth colors)])
-    (mapv #(zipmap [:cur-x :cur-y :target-x :target-y :dimension :color] %))))
+    (mapv #(zipmap [:cur-x :cur-y :target-x :target-y :dimension :color] %))
+    (map-indexed #(into %2 {:index %1}))))
 
 (def ball-state (atom balls))
 
@@ -75,13 +76,30 @@
 (defn update-positions [bs]
   (->> bs
     (mapv (fn [ball] (update-in ball [:cur-x] #(update-position (ball :cur-x) (ball :target-x)))))
-    (mapv (fn [ball] (update-in ball [:cur-y] #(update-position (ball :cur-y) (ball :target-y)))))))
+    (mapv (fn [ball] (update-in ball [:cur-y] #(update-position (ball :cur-y) (ball :target-y)))))
+    (sort-by (juxt :cur-y :cur-x))))
 
+(defn all-same? [s]
+  (= (count (distinct s)) 1))
+
+(defn find-matches [rows]
+  (->> rows
+    (mapv #(partition 3 1 %))
+    (mapv #(mapv all-same? %))
+    (flatten)
+    (some true?)))
+
+(defn check-board []
+  (let [clrs (map :color @ball-state)
+        rows (partition 8 clrs)
+        cols (map #(take-nth 8 (drop % clrs)) (range 8))]
+    (when (find-matches (concat rows cols)) (println "Found!"))))
 
 (defn do-frame []
   (.requestAnimationFrame js/window do-frame)
   (swap! ball-state update-positions)
   (.clearRect context 0 0 (. canvas -width) (. canvas -height))
+  (check-board)
   (doseq [b @ball-state] (drawBall b))
   (doseq [k knobs] (drawBall k)))
 
