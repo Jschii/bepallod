@@ -79,21 +79,24 @@
     (mapv (fn [ball] (update-in ball [:cur-y] #(update-position (ball :cur-y) (ball :target-y)))))
     (sort-by (juxt :cur-y :cur-x))))
 
-(defn all-same? [s]
-  (= (count (distinct s)) 1))
+(defn all-same-color? [s]
+  (let [clrs (map :color s)]
+    (if (= (count (distinct clrs)) 1)
+      (map :index s)
+      ())))
 
 (defn find-matches [rows]
   (->> rows
     (mapv #(partition 3 1 %))
-    (mapv #(mapv all-same? %))
+    (mapv #(mapv all-same-color? %))
     (flatten)
-    (some true?)))
+    (distinct)))
 
 (defn check-board []
-  (let [clrs (map :color @ball-state)
+  (let [clrs (map #(select-keys % [:color :index]) @ball-state)
         rows (partition 8 clrs)
         cols (map #(take-nth 8 (drop % clrs)) (range 8))]
-    (when (find-matches (concat rows cols)) (println "Found!"))))
+    (when (not-empty (find-matches (concat rows cols))) (println "Found!"))))
 
 (defn do-frame []
   (.requestAnimationFrame js/window do-frame)
