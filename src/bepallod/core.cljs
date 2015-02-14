@@ -92,17 +92,48 @@
     (flatten)
     (distinct)))
 
-(defn check-board []
-  (let [clrs (map #(select-keys % [:color :index]) @ball-state)
+(defn match-index [ball matches]
+  (some #(= % (ball :index)) matches))
+
+(defn is-above [ball match-ball]
+  (and
+    (= (match-ball :cur-x) (ball :cur-x))
+    (> (match-ball :cur-y) (ball :cur-y))))
+
+(defn number-of-matches [ball matches]
+  (->> @ball-state
+    (filter #(match-index % matches))
+    (filter #(is-above ball %))
+    (count)))
+
+(defn reset-matching-ball [ball matches]
+  (if (match-index ball matches)
+    (-> ball
+      (assoc-in [:cur-y] -25)
+      (assoc-in [:target-y] (+ 25 (* (number-of-matches ball matches) 50)))
+      (assoc-in [:color] (rand-nth colors)))
+    ball))
+
+(defn move-ball-above [ball matches]
+  (assoc-in ball [:target-y] (+ (ball :target-y) (* (number-of-matches ball matches) 50))))
+
+(defn check-board [bs]
+  (let [clrs (map #(select-keys % [:color :index]) bs)
         rows (partition 8 clrs)
-        cols (map #(take-nth 8 (drop % clrs)) (range 8))]
-    (when (not-empty (find-matches (concat rows cols))) (println "Found!"))))
+        cols (map #(take-nth 8 (drop % clrs)) (range 8))
+        matches (find-matches (concat rows cols))]
+    (->> bs
+      (mapv #(move-ball-above % matches))
+      (mapv #(reset-matching-ball % matches)))))
 
 (defn do-frame []
   (.requestAnimationFrame js/window do-frame)
   (swap! ball-state update-positions)
   (.clearRect context 0 0 (. canvas -width) (. canvas -height))
-  (check-board)
+  (when (every? #(and
+                   (= (% :cur-y) (% :target-y))
+                   (= (% :cur-x) (% :target-x))) @ball-state)
+    (swap! ball-state check-board))
   (doseq [b @ball-state] (drawBall b))
   (doseq [k knobs] (drawBall k)))
 
@@ -112,7 +143,7 @@
       (let [x (. event -layerX)
             y (. event -layerY)
             balls-to-move (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)
-            static-balls (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
+            static-balls  (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
         (when (= (count balls-to-move) 4)
           (reset! ball-state (concat static-balls (move-balls balls-to-move x y)))))
       false))
