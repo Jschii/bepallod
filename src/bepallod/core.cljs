@@ -7,41 +7,44 @@
 
 (def colors ["#ffff00" "#ff00ff" "#00ffff" "#ff7f7f" "#7fff7f" "#7f7fff" "#aaaaaa"])
 
+(def ball-diameter 50)
+(def ball-radius 25)
+
 (def balls
   (->>
-    (for [x (range 25 425 50)
-          y (range 25 425 50)]
+    (for [x (range ball-radius 425 ball-diameter)
+          y (range ball-radius 425 ball-diameter)]
       [x y x y 25 (rand-nth colors)])
-    (mapv #(zipmap [:cur-x :cur-y :target-x :target-y :dimension :color] %))
+    (mapv #(zipmap [:cur-x :cur-y :target-x :target-y :radius :color] %))
     (map-indexed #(into %2 {:index %1}))))
 
 (def ball-state (atom balls))
 
 (def knobs
-  (for [x (range 50 400 50)
-        y (range 50 400 50)]
-    {:cur-x x :cur-y y :dimension 7 :color "#2a2a2a"}))
+  (for [x (range ball-diameter 400 ball-diameter)
+        y (range ball-diameter 400 ball-diameter)]
+    {:cur-x x :cur-y y :radius 7 :color "#2a2a2a"}))
 
 (defn gradient-value []
-  (-> (-(. (js/Date.) (getTime)))
+  (-> (-(.getTime (js/Date.)))
     (mod 4000)
     (/ 2000)
     (- 1)
     (Math/abs)))
 
 (defn drawBall [ball]
-  (let [dimension (ball :dimension)]
+  (let [radius (ball :radius)]
     (.save context)
     (.translate context (ball :cur-x) (ball :cur-y))
-    (set! (. context -lineWidth) 2)
-    (when (= dimension 25)
-      (let [gradient (.createLinearGradient context (- dimension) (- dimension) dimension dimension)]
+    (set! (.-lineWidth context) 2)
+    (when (= radius ball-radius)
+      (let [gradient (.createLinearGradient context (- radius) (- radius) radius radius)]
         (.addColorStop gradient 0 (ball :color))
         (.addColorStop gradient (gradient-value) "#d5d5d5")
         (.addColorStop gradient 1 (ball :color))
-        (set! (. context -fillStyle) gradient)))
+        (set! (.-fillStyle context) gradient)))
     (.beginPath context)
-    (.arc context 0 0 dimension 0 (* Math/PI 2) true)
+    (.arc context 0 0 radius 0 (* Math/PI 2) true)
     (.closePath context)
     (.fill context)
     (.stroke context)
@@ -52,14 +55,14 @@
 
 (defn target-x [ball x y]
   (cond
-    (and (> x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-x) 50)
-    (and (< x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-x) 50)
+    (and (> x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-x) ball-diameter)
+    (and (< x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-x) ball-diameter)
     :else (ball :cur-x)))
 
 (defn target-y [ball x y]
   (cond
-    (and (> x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-y) 50)
-    (and (< x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-y) 50)
+    (and (> x (ball :cur-x)) (< y (ball :cur-y))) (- (ball :cur-y) ball-diameter)
+    (and (< x (ball :cur-x)) (> y (ball :cur-y))) (+ (ball :cur-y) ball-diameter)
     :else (ball :cur-y)))
 
 (defn update-position [c t]
@@ -106,16 +109,19 @@
     (filter #(is-above ball %))
     (count)))
 
+(defn new-position [ball matches]
+  (* (number-of-matches ball matches) ball-diameter))
+
 (defn reset-matching-ball [ball matches]
   (if (match-index ball matches)
     (-> ball
-      (assoc-in [:cur-y] -25)
-      (assoc-in [:target-y] (+ 25 (* (number-of-matches ball matches) 50)))
+      (assoc-in [:cur-y] (- ball-radius))
+      (assoc-in [:target-y] (+ ball-radius (new-position ball matches)))
       (assoc-in [:color] (rand-nth colors)))
     ball))
 
 (defn move-ball-above [ball matches]
-  (assoc-in ball [:target-y] (+ (ball :target-y) (* (number-of-matches ball matches) 50))))
+  (assoc-in ball [:target-y] (+ (ball :target-y) (new-position ball matches))))
 
 (defn check-board [bs]
   (let [clrs (map #(select-keys % [:color :index]) bs)
@@ -129,7 +135,7 @@
 (defn do-frame []
   (.requestAnimationFrame js/window do-frame)
   (swap! ball-state update-positions)
-  (.clearRect context 0 0 (. canvas -width) (. canvas -height))
+  (.clearRect context 0 0 (.-width canvas) (.-height canvas))
   (when (every? #(and
                    (= (% :cur-y) (% :target-y))
                    (= (% :cur-x) (% :target-x))) @ball-state)
@@ -140,10 +146,11 @@
 (defn ^:export main []
   (.addEventListener canvas "click"
     (fn [event]
-      (let [x (. event -layerX)
-            y (. event -layerY)
-            balls-to-move (filter (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)
-            static-balls  (remove (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y))) @ball-state)]
+      (let [x (.-layerX event)
+            y (.-layerY event)
+            to-move? (fn [ball] (and (is-near? (ball :cur-x) x) (is-near? (ball :cur-y) y)))
+            balls-to-move (filter to-move? @ball-state)
+            static-balls  (remove to-move? @ball-state)]
         (when (= (count balls-to-move) 4)
           (reset! ball-state (concat static-balls (move-balls balls-to-move x y)))))
       false))
